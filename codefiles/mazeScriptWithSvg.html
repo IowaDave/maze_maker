@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		.mLine {  /* maze line segment */
+			stroke: #3f3f3f; /* medium gray */
+			stroke-width: 0.2; /* vary up to 1 for small mazes */
+			stroke-linecap: round; /* lines look nicer this way */
+	</style>
+  
+  <script>
+
+    // random-number generator returns 0 or 1
+    // used below in makeMaze() function
+    function rand01() {
+      let randByte = 0;
+    	if (Math.random() >= 0.5) {
+    		randByte = 1;
+	    }
+      return randByte;
+    }
+    
+    // maze creation routine
+    function makeMaze() {
+    // matrix dimensions
+    const ROWS = 100;
+    const COLS = 75;
+    
+    // SVG dimensions
+    // width in inches
+    const MAZEWIDTH = 7.5;
+    // line thickness in pixels
+    // const LINEWIDTH =0.2
+    // line color in hex
+    // const LINECOLOR = 0x000000;
+
+    // cell properties xor'd into to cell value as appropriate
+    const LEFTLINE = 1 // print left vertical line
+    const TOPLINE = 2 // print top horizontal line
+    const RIGHTLINE = 4 // print right vertical line
+    const BOTTOMLINE = 8 // print bottom horizontal line
+    const VISITED = 16 // indicates cell has been visited
+    
+    // maze-related variables
+    var mazeCell = []; // initialize to empty array
+    var origin = [0, 0];
+    var destination = [0, 0];
+    var motion = [0, 0];
+    var unVisited = ROWS * COLS;
+    var row = 0;
+    var col = 0;
+    // SVG-related variables
+    var cornerLeft = 0;
+    var cornerTop = 0;
+    var cornerRight = 0;
+    var cornerBottom = 0;
+  	// computed SVG dimensions
+	  var lineLength = MAZEWIDTH / COLS; 
+	  var mazeHeight = lineLength * ROWS;
+
+    document.getElementById("mazeSVG").innerHTML = "Creating the array";      
+    // console.log("Creating the array");
+      
+  	// initialize mazeCell array
+	// insert elements into the array A
+	for (row = 0; row < ROWS; row++) {
+		mazeCell.push([]);
+		for (col = 0; col < COLS; col++) {
+      // initialize cells with top line and left line
+			mazeCell[row].push(TOPLINE + LEFTLINE);
+		}
+	}
+  	// turn off the left line on the upper-left cell
+  	mazeCell[0][0] ^= LEFTLINE;
+  	// give bottom row of cells a bottom line
+  	for (col = 0; col < COLS; col++) {
+  		mazeCell[ROWS-1][col] += BOTTOMLINE;
+  	}
+  	// give right-most column of cells a right side line
+  	// except for the cell on the bottom row
+  	for (row = 0; row < (ROWS - 1); row++) {
+  		mazeCell[row][COLS-1] += RIGHTLINE;
+  	}
+
+   // console.table(mazeCell);      
+    document.getElementById("mazeSVG").innerHTML = "Selecting starting cell";      
+    // console.log("\nSelecting starting cell");
+      
+  	// select random starting cell
+  	origin[0] = Math.trunc(Math.random() * ROWS);
+  	origin[1] = Math.trunc(Math.random() * COLS);
+  	// mark it as visited
+  	mazeCell[origin[0]][origin[1]] ^= VISITED;
+  	// decrement count of unvisited cells
+  	unVisited -= 1;
+      
+    document.getElementById("mazeSVG").innerHTML = "Mining the maze";  
+    // console.log("\nMining the maze");
+      
+  	// visit all the other cells
+  	while (unVisited > 0) {
+  		// find a valid destination
+  		do {
+  			if (rand01() == 0) {
+  				motion[0] = (rand01() * 2) - 1;
+  				motion[1] = 0;
+  			} else {
+  				motion[0] = 0;
+  				motion[1] = (rand01() * 2) - 1;
+  			}
+  			destination[0] = origin[0] + motion[0];
+  			destination[1] = origin[1] + motion[1];
+  		} while (
+  			destination[0] < 0
+  			|| destination[0] >= ROWS
+  			|| destination[1] < 0
+  			|| destination[1] >= COLS
+  		);
+  		// test destination for visited
+  		if ((mazeCell[destination[0]][destination[1]] & VISITED) == 0) {
+  			// it has not been visited
+  			// so mark it as visited 
+  			mazeCell[destination[0]][destination[1]] ^= VISITED;
+  			// decrement unVisited counter
+  			unVisited -= 1;
+  			// clear appropriate boundary
+  			if (motion[0] == -1) {
+  				mazeCell[origin[0]][origin[1]] ^= TOPLINE;
+  			}
+  			if (motion[0] == 1) {
+  				mazeCell[destination[0]][destination[1]] ^= TOPLINE;
+  			}
+  			if (motion[1] == -1) {
+  				mazeCell[origin[0]][origin[1]] ^= LEFTLINE;
+  			}
+  			if (motion[1] == 1) {
+  				mazeCell[destination[0]][destination[1]] ^= LEFTLINE;
+  			}
+  		}
+  		// let destination be the new origin
+  		origin[0] = destination[0];
+  		origin[1] = destination[1];
+  	}
+  	// all cells visited,  
+    // perpare the SVG for the maze
+    let svgString = "\t<svg width=\"" + MAZEWIDTH + "in\" height=\"" + mazeHeight + "in\">\n";
+		// go row by row
+		for (row = 0; row < ROWS; row++) {
+			// then col by col within row
+      for (col = 0; col < COLS; col++){
+			// locate the corners of the cell, top-left as calculated numbers
+				cornerLeft = lineLength * col;
+				cornerTop = lineLength * row;
+        // and then all four corners as strings
+				cornerRight = (cornerLeft + lineLength).toString();
+				cornerBottom = (cornerTop + lineLength).toString();
+        cornerLeft = cornerLeft.toString();
+        cornerTop = cornerTop.toString();
+       
+				// append the SVG group tag for the cell
+				svgString.concat("\t\t<g id=\"" + row.toString() + col.toString() + "\">\n");
+        
+				// top line
+				if ((mazeCell[row][col] & TOPLINE) == TOPLINE) {
+					svgString = svgString.concat("\t\t\t<!-- Top Line -->\n",
+					               "\t\t\t<line class=\"mLine\"",
+					               " x1=\"", cornerLeft, "in\"",
+                         " y1=\"", cornerTop, "in\"",
+					               " x2=\"", cornerRight, "in\"",
+                         " y2=\"", cornerTop, "in\"", 
+                         " />\n");
+				}
+        
+				// left side line
+				if ((mazeCell[row][col] & LEFTLINE) == LEFTLINE) {
+					svgString = svgString.concat("\t\t\t<!-- Left Line -->\n",
+					               "\t\t\t<line class=\"mLine\"",
+					               " x1=\"", cornerLeft, "in\"",
+                         " y1=\"", cornerTop, "in\"",
+					               " x2=\"", cornerLeft, "in\"",
+                         " y2=\"", cornerBottom, "in\"",
+                         " />\n");
+				}
+				// right side line
+				if ((mazeCell[row][col] & RIGHTLINE) == RIGHTLINE) {
+					svgString = svgString.concat("\t\t\t<!-- Right Line -->\n"
+					               + "\t\t\t<line class=\"mLine\""
+					               + " x1=\"" + cornerRight + "in\""
+                         + " y1=\"" + cornerTop + "in\""
+					               + " x2=\"" + cornerRight + "in\""
+                         + " y2=\"" + cornerBottom + "in\""
+                         + " />\n");
+				}
+				// bottom line
+				if ((mazeCell[row][col] & BOTTOMLINE) == BOTTOMLINE) {
+					svgString = svgString.concat("\t\t\t<!-- Bottom Line -->\n"
+					               + "\t\t\t<line class=\"mLine\""
+					               + " x1=\"" + cornerLeft + "in\""
+                         + " y1=\"" + cornerBottom + "in\""
+					               + " x2=\"" + cornerRight + "in\""
+                         + " y2=\"" + cornerBottom + "in\""
+                         + " />\n");
+				}
+				// close the SVG group tag for the cell
+				svgString.concat("\t\t</g>\n");
+			} // end for row
+		} // end for col
+		// add the closing SVG tag
+		svgString.concat("\t</svg>\n");
+
+  // insert the SVG into the html document
+  document.getElementById("mazeSVG").innerHTML = svgString;    
+  // console.table(mazeCell);
+  
+  // console.table(mazeCell);
+  // console.log(svgString);
+} 
+
+  </script>
+</head>
+<body>  
+  <div id="mazeSVG" onclick="makeMaze()">Click to get a new maze.
+  </div>
+</body>
+</html>
